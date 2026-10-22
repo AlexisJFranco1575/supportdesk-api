@@ -20,6 +20,11 @@ public sealed class TicketRepository(SupportDeskDbContext db) : ITicketRepositor
     {
         IQueryable<Ticket> query = db.Tickets.AsNoTracking();
 
+        if (filter.RequesterId is { } requesterId)
+        {
+            query = query.Where(t => t.RequesterId == requesterId);
+        }
+
         if (filter.Status is { } status)
         {
             query = query.Where(t => t.Status == status);

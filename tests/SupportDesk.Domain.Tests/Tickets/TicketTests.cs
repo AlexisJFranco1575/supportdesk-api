@@ -8,9 +8,10 @@ public class TicketTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
     private static readonly Guid Agent = Guid.Parse("11111111-1111-4111-8111-111111111111");
+    private static readonly Guid Requester = Guid.Parse("22222222-2222-4222-8222-222222222222");
 
     private static Ticket NewTicket() =>
-        Ticket.Create("Printer is down", "The 3rd floor printer does not respond.", TicketPriority.High, Now);
+        Ticket.Create("Printer is down", "The 3rd floor printer does not respond.", TicketPriority.High, Requester, Now);
 
     private static Ticket InProgressTicket()
     {
@@ -35,6 +36,7 @@ public class TicketTests
         Assert.Equal("Printer is down", ticket.Title);
         Assert.Equal(TicketStatus.Open, ticket.Status);
         Assert.Equal(TicketPriority.High, ticket.Priority);
+        Assert.Equal(Requester, ticket.RequesterId);
         Assert.Null(ticket.AssigneeId);
         Assert.Null(ticket.ResolvedAt);
         Assert.Equal(Now, ticket.CreatedAt);
@@ -44,7 +46,7 @@ public class TicketTests
     [Fact]
     public void Create_trims_title_and_description()
     {
-        var ticket = Ticket.Create("  Title  ", "  Body  ", TicketPriority.Low, Now);
+        var ticket = Ticket.Create("  Title  ", "  Body  ", TicketPriority.Low, Requester, Now);
 
         Assert.Equal("Title", ticket.Title);
         Assert.Equal("Body", ticket.Description);
@@ -57,7 +59,7 @@ public class TicketTests
     public void Create_rejects_a_missing_title(string? title)
     {
         Assert.Throws<DomainException>(() =>
-            Ticket.Create(title, "Some description", TicketPriority.Low, Now));
+            Ticket.Create(title, "Some description", TicketPriority.Low, Requester, Now));
     }
 
     [Fact]
@@ -66,21 +68,28 @@ public class TicketTests
         var title = new string('a', Ticket.TitleMaxLength + 1);
 
         Assert.Throws<DomainException>(() =>
-            Ticket.Create(title, "Some description", TicketPriority.Low, Now));
+            Ticket.Create(title, "Some description", TicketPriority.Low, Requester, Now));
     }
 
     [Fact]
     public void Create_rejects_a_missing_description()
     {
         Assert.Throws<DomainException>(() =>
-            Ticket.Create("A title", "  ", TicketPriority.Low, Now));
+            Ticket.Create("A title", "  ", TicketPriority.Low, Requester, Now));
     }
 
     [Fact]
     public void Create_rejects_an_unknown_priority()
     {
         Assert.Throws<DomainException>(() =>
-            Ticket.Create("A title", "A description", (TicketPriority)99, Now));
+            Ticket.Create("A title", "A description", (TicketPriority)99, Requester, Now));
+    }
+
+    [Fact]
+    public void Create_rejects_an_empty_requester()
+    {
+        Assert.Throws<DomainException>(() =>
+            Ticket.Create("A title", "A description", TicketPriority.Low, Guid.Empty, Now));
     }
 
     [Fact]
@@ -144,6 +153,7 @@ public class TicketTests
         Assert.Equal(TicketStatus.Open, ticket.Status);
         Assert.Null(ticket.AssigneeId);
         Assert.Null(ticket.ResolvedAt);
+        Assert.Equal(Requester, ticket.RequesterId);
     }
 
     [Fact]

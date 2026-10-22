@@ -32,7 +32,12 @@ public sealed class TicketConfiguration : IEntityTypeConfiguration<Ticket>
             .HasMaxLength(20)
             .IsRequired();
 
+        builder.Property(t => t.RequesterId).IsRequired();
+
         builder.HasIndex(t => new { t.Status, t.CreatedAt });
         builder.HasIndex(t => t.AssigneeId);
+
+        // Customers list "my tickets" newest first, so this index serves their main query.
+        builder.HasIndex(t => new { t.RequesterId, t.CreatedAt });
     }
 }

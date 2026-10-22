@@ -4,9 +4,9 @@
 
 A support-ticket API built with **.NET 10**, **Clean Architecture**, **EF Core** and **SQL Server**.
 It models a real ticket workflow (Open → In progress → Resolved → Closed, with reopening),
-secures it with **JWT authentication and role-based authorization**, and keeps the business rules in a
-framework-free domain layer. The HTTP surface is tested end to end against a real SQL Server
-started with Testcontainers.
+secures it with **JWT authentication, role-based authorization and per-user ownership**, and keeps the
+business rules in a framework-free domain layer. The HTTP surface is tested end to end against a real
+SQL Server started with Testcontainers.
 
 ## Status
 
@@ -16,7 +16,7 @@ Work in progress.
 - [x] Milestone 2: application layer, EF Core + SQL Server, migrations, ticket endpoints
 - [x] Milestone 3: integration tests (Testcontainers), readiness probe, dependency audit in CI
 - [x] Milestone 4a: users, JWT authentication, roles, input validation
-- [ ] Milestone 4b: ownership rules (customers only see their own tickets)
+- [x] Milestone 4b: ownership rules (customers only see their own tickets)
 - [ ] Milestone 5: Docker image and cloud deployment
 
 ## Architecture
@@ -40,14 +40,17 @@ Dependencies point inwards: `Api → Infrastructure → Application → Domain`.
 | Role | Can do |
 | --- | --- |
 | Anonymous | Register, log in, health probes |
-| Customer | Create and read tickets |
-| Agent | Everything a customer can, plus assign, resolve, close, reopen and re-prioritise tickets |
+| Customer | Create tickets and read **only their own** |
+| Agent | Read every ticket; assign, resolve, close, reopen and re-prioritise them |
 | Admin | Everything an agent can, plus change user roles |
 
 - Registration always creates a `Customer`; only an admin can promote a user.
 - Passwords are hashed with PBKDF2 (ASP.NET Core Identity hasher, 210,000 iterations); plain passwords are never stored or returned.
 - Access tokens are short-lived JWTs (30 minutes) signed with HMAC-SHA256. The role travels in the token, so a role change applies at the next login.
 - A wrong password and an unknown email produce the same `401` response, and the same amount of hashing work, so accounts cannot be enumerated.
+- A ticket's requester is taken from the validated token, never from the request body.
+- Customers asking for someone else's ticket get `404`, not `403`, so the ticket's existence is not revealed. The "own tickets only" restriction is applied inside the database query.
+- Working on tickets is protected twice: by an endpoint policy and by a rule inside the service.
 - The signing key and the first admin come from user-secrets / environment variables, never from the repository.
 
 ## Endpoints
@@ -59,8 +62,8 @@ Dependencies point inwards: `Api → Infrastructure → Application → Domain`.
 | GET | `/api/auth/me` | Authenticated | Identity carried by the token |
 | PUT | `/api/users/{id}/role` | Admin | Change a user's role |
 | POST | `/api/tickets` | Authenticated | Create a ticket |
-| GET | `/api/tickets` | Authenticated | List tickets (`status`, `priority`, `page`, `pageSize`) |
-| GET | `/api/tickets/{id}` | Authenticated | Get a ticket |
+| GET | `/api/tickets` | Authenticated | List tickets (`status`, `priority`, `page`, `pageSize`); customers see only their own |
+| GET | `/api/tickets/{id}` | Authenticated | Get a ticket (customers: only their own) |
 | POST | `/api/tickets/{id}/start` | Agent | Assign and start working |
 | POST | `/api/tickets/{id}/resolve` | Agent | Mark as resolved |
 | POST | `/api/tickets/{id}/close` | Agent | Close a resolved ticket |
@@ -76,7 +79,7 @@ Errors follow RFC 9457 problem details:
 | 400 | Invalid input (with per-field errors) or malformed request |
 | 401 | Missing/invalid token or wrong credentials |
 | 403 | Authenticated, but the role is not allowed |
-| 404 | Unknown resource |
+| 404 | Unknown resource (or one the caller may not see) |
 | 409 | Conflict (for example, email already registered) |
 | 422 | A business rule was violated (for example, resolving a ticket that is not in progress) |
 
@@ -106,7 +109,7 @@ dotnet run --project src/SupportDesk.Api
 ```
 
 Open the printed URL followed by `/scalar` for the interactive API docs. Log in through
-`POST /api/auth/login`, then paste the token into the Bearer authentication field.
+`POST /api/auth/login`, then choose **Bearer Token** in the Authentication panel and paste the token.
 
 ## Tests
 
@@ -121,9 +124,12 @@ migrations and call the API in memory. Nothing needs to be configured.
 
 - Domain entities expose behaviour, not setters: every state change goes through a method
   that enforces the invariants.
-- The Application layer owns the persistence, hashing and token interfaces; Infrastructure implements them.
+- The Application layer owns the persistence, hashing, token and current-user interfaces;
+  Infrastructure and the API implement them.
 - Time is injected (`TimeProvider`), which keeps the domain and use cases deterministic in tests.
 - Enums are stored as text in the database and serialized as strings in JSON.
+- Unique indexes are the source of truth for uniqueness; the repository turns a violated index into a
+  `409`, so concurrent requests (or two instances starting at once) cannot corrupt the data.
 - Separate liveness and readiness probes, so a platform can tell "restart me" from "stop sending traffic".
 - CI fails when a dependency has a known vulnerability, so security fixes are never silently skipped.
 - No MediatR and no assertion library: plain services and xUnit assertions keep the dependency list small.

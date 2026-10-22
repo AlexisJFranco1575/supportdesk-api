@@ -24,6 +24,9 @@ public sealed class Ticket
 
     public TicketPriority Priority { get; private set; }
 
+    /// <summary>The user who opened the ticket. It never changes.</summary>
+    public Guid RequesterId { get; private set; }
+
     public Guid? AssigneeId { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
@@ -36,9 +39,15 @@ public sealed class Ticket
         string? title,
         string? description,
         TicketPriority priority,
+        Guid requesterId,
         DateTimeOffset now)
     {
         EnsureValidPriority(priority);
+
+        if (requesterId == Guid.Empty)
+        {
+            throw new DomainException("A ticket must have a requester.");
+        }
 
         return new Ticket
         {
@@ -46,6 +55,7 @@ public sealed class Ticket
             Title = NormalizeTitle(title),
             Description = NormalizeDescription(description),
             Priority = priority,
+            RequesterId = requesterId,
             Status = TicketStatus.Open,
             CreatedAt = now,
             UpdatedAt = now
