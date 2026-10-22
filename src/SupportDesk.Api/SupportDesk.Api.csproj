@@ -1,15 +1,25 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>525dc0e6-a4c3-416f-b937-07d84ab175b7</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.18.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SupportDesk.Application\SupportDesk.Application.csproj" />
+    <ProjectReference Include="..\SupportDesk.Infrastructure\SupportDesk.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

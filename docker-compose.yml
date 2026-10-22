@@ -1,0 +1,21 @@
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    container_name: supportdesk-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in your .env file}
+    ports:
+      - "1433:1433"
+    volumes:
+      - supportdesk-data:/var/opt/mssql
+    healthcheck:
+      # Checks that SQL Server accepts TCP connections (the 2025 image may not ship sqlcmd).
+      test: ["CMD-SHELL", "timeout 3 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  supportdesk-data:

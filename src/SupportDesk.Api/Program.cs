@@ -1,11 +1,32 @@
+using System.Text.Json.Serialization;
 using Scalar.AspNetCore;
+using SupportDesk.Api.Endpoints;
+using SupportDesk.Api.ErrorHandling;
+using SupportDesk.Application;
+using SupportDesk.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var connectionString = builder.Configuration.GetConnectionString("SupportDesk")
+    ?? throw new InvalidOperationException(
+        "Connection string 'SupportDesk' is not configured. See the README for local setup.");
+
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(connectionString);
+
+// Enums travel as readable strings ("InProgress") instead of numbers.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
@@ -21,6 +42,7 @@ else
 
 app.MapGet("/", () => Results.Redirect("/scalar")).ExcludeFromDescription();
 app.MapHealthChecks("/health/live");
+app.MapTicketEndpoints();
 
 app.Run();
 
