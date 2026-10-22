@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Scalar.AspNetCore;
 using SupportDesk.Api.Endpoints;
 using SupportDesk.Api.ErrorHandling;
 using SupportDesk.Application;
 using SupportDesk.Infrastructure;
+using SupportDesk.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,7 +24,10 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 
 builder.Services.AddOpenApi();
-builder.Services.AddHealthChecks();
+
+// "ready" checks verify dependencies (the database); "live" only proves the process responds.
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<SupportDeskDbContext>("database", tags: ["ready"]);
 
 var app = builder.Build();
 
@@ -41,10 +46,16 @@ else
 }
 
 app.MapGet("/", () => Results.Redirect("/scalar")).ExcludeFromDescription();
-app.MapHealthChecks("/health/live");
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+
 app.MapTicketEndpoints();
 
 app.Run();
 
-// Makes the entry point visible to integration tests (added in a later milestone).
+// Makes the entry point visible to integration tests.
 public partial class Program;
