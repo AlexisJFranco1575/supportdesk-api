@@ -16,11 +16,20 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsSer
         Exception exception,
         CancellationToken cancellationToken)
     {
-        var (status, title) = exception switch
+        var (status, title, detail) = exception switch
         {
-            NotFoundException => (StatusCodes.Status404NotFound, "Resource not found"),
-            DomainException => (StatusCodes.Status422UnprocessableEntity, "Business rule violated"),
-            _ => (0, string.Empty)
+            NotFoundException =>
+                (StatusCodes.Status404NotFound, "Resource not found", exception.Message),
+
+            DomainException =>
+                (StatusCodes.Status422UnprocessableEntity, "Business rule violated", exception.Message),
+
+            // Malformed JSON, unknown enum values, invalid query-string values, etc.
+            // The framework reports them as BadHttpRequestException (400); keep the same response format.
+            BadHttpRequestException badRequest =>
+                (badRequest.StatusCode, "Invalid request", "The request is malformed or contains invalid values."),
+
+            _ => (0, string.Empty, string.Empty)
         };
 
         if (status == 0)
@@ -38,7 +47,7 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsSer
             {
                 Status = status,
                 Title = title,
-                Detail = exception.Message
+                Detail = detail
             }
         });
     }
