@@ -34,6 +34,10 @@ builder.Services.Configure<JwtOptions>(jwtSection);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(connectionString);
 
+// NEW: the identity of the caller, exposed to the Application layer through ICurrentUser.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

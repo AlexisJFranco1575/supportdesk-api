@@ -24,6 +24,9 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsSer
             ConflictException =>
                 Problem(StatusCodes.Status409Conflict, "Conflict", exception.Message),
 
+            ForbiddenException =>
+                Problem(StatusCodes.Status403Forbidden, "Forbidden", exception.Message),
+
             InvalidCredentialsException =>
                 Problem(StatusCodes.Status401Unauthorized, "Authentication failed", exception.Message),
 

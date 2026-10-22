@@ -24,6 +24,11 @@ internal sealed class FakeTicketRepository : ITicketRepository
     {
         var query = _tickets.AsEnumerable();
 
+        if (filter.RequesterId is { } requesterId)
+        {
+            query = query.Where(t => t.RequesterId == requesterId);
+        }
+
         if (filter.Status is { } status)
         {
             query = query.Where(t => t.Status == status);

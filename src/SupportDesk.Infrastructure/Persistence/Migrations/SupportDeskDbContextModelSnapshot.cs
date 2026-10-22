@@ -43,6 +43,9 @@ namespace SupportDesk.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<Guid>("RequesterId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTimeOffset?>("ResolvedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -62,6 +65,8 @@ namespace SupportDesk.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AssigneeId");
+
+                    b.HasIndex("RequesterId", "CreatedAt");
 
                     b.HasIndex("Status", "CreatedAt");
 
