@@ -1,3 +1,4 @@
+using SupportDesk.Api.Security;
 using SupportDesk.Application.Tickets;
 using SupportDesk.Domain.Tickets;
 
@@ -7,8 +8,10 @@ public static class TicketEndpoints
 {
     public static IEndpointRouteBuilder MapTicketEndpoints(this IEndpointRouteBuilder app)
     {
+        // Any authenticated user can reach the group; agent-only actions add a stricter policy below.
         var group = app.MapGroup("/api/tickets")
             .WithTags("Tickets")
+            .RequireAuthorization()
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
@@ -45,28 +48,32 @@ public static class TicketEndpoints
                 ITicketService service,
                 CancellationToken cancellationToken) =>
                 TypedResults.Ok(await service.StartProgressAsync(id, request, cancellationToken)))
-            .WithSummary("Assign the ticket and start working on it");
+            .RequireAuthorization(Policies.Agent)
+            .WithSummary("Assign the ticket and start working on it (agents)");
 
         group.MapPost("/{id:guid}/resolve", async (
                 Guid id,
                 ITicketService service,
                 CancellationToken cancellationToken) =>
                 TypedResults.Ok(await service.ResolveAsync(id, cancellationToken)))
-            .WithSummary("Mark an in-progress ticket as resolved");
+            .RequireAuthorization(Policies.Agent)
+            .WithSummary("Mark an in-progress ticket as resolved (agents)");
 
         group.MapPost("/{id:guid}/close", async (
                 Guid id,
                 ITicketService service,
                 CancellationToken cancellationToken) =>
                 TypedResults.Ok(await service.CloseAsync(id, cancellationToken)))
-            .WithSummary("Close a resolved ticket");
+            .RequireAuthorization(Policies.Agent)
+            .WithSummary("Close a resolved ticket (agents)");
 
         group.MapPost("/{id:guid}/reopen", async (
                 Guid id,
                 ITicketService service,
                 CancellationToken cancellationToken) =>
                 TypedResults.Ok(await service.ReopenAsync(id, cancellationToken)))
-            .WithSummary("Reopen a resolved or closed ticket");
+            .RequireAuthorization(Policies.Agent)
+            .WithSummary("Reopen a resolved or closed ticket (agents)");
 
         group.MapPatch("/{id:guid}/priority", async (
                 Guid id,
@@ -74,7 +81,8 @@ public static class TicketEndpoints
                 ITicketService service,
                 CancellationToken cancellationToken) =>
                 TypedResults.Ok(await service.ChangePriorityAsync(id, request, cancellationToken)))
-            .WithSummary("Change the priority of a ticket that is not closed");
+            .RequireAuthorization(Policies.Agent)
+            .WithSummary("Change the priority of a ticket that is not closed (agents)");
 
         return app;
     }

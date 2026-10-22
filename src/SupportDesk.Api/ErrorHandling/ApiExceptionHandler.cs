@@ -16,39 +16,49 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsSer
         Exception exception,
         CancellationToken cancellationToken)
     {
-        var (status, title, detail) = exception switch
+        ProblemDetails? problem = exception switch
         {
             NotFoundException =>
-                (StatusCodes.Status404NotFound, "Resource not found", exception.Message),
+                Problem(StatusCodes.Status404NotFound, "Resource not found", exception.Message),
+
+            ConflictException =>
+                Problem(StatusCodes.Status409Conflict, "Conflict", exception.Message),
+
+            InvalidCredentialsException =>
+                Problem(StatusCodes.Status401Unauthorized, "Authentication failed", exception.Message),
+
+            RequestValidationException validation =>
+                new ValidationProblemDetails(validation.Errors)
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "One or more validation errors occurred."
+                },
 
             DomainException =>
-                (StatusCodes.Status422UnprocessableEntity, "Business rule violated", exception.Message),
+                Problem(StatusCodes.Status422UnprocessableEntity, "Business rule violated", exception.Message),
 
             // Malformed JSON, unknown enum values, invalid query-string values, etc.
-            // The framework reports them as BadHttpRequestException (400); keep the same response format.
             BadHttpRequestException badRequest =>
-                (badRequest.StatusCode, "Invalid request", "The request is malformed or contains invalid values."),
+                Problem(badRequest.StatusCode, "Invalid request", "The request is malformed or contains invalid values."),
 
-            _ => (0, string.Empty, string.Empty)
+            _ => null
         };
 
-        if (status == 0)
+        if (problem is null)
         {
             return false;
         }
 
-        httpContext.Response.StatusCode = status;
+        httpContext.Response.StatusCode = problem.Status ?? StatusCodes.Status500InternalServerError;
 
         return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,
             Exception = exception,
-            ProblemDetails = new ProblemDetails
-            {
-                Status = status,
-                Title = title,
-                Detail = detail
-            }
+            ProblemDetails = problem
         });
     }
+
+    private static ProblemDetails Problem(int status, string title, string detail) =>
+        new() { Status = status, Title = title, Detail = detail };
 }
