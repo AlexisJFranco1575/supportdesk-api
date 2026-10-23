@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using SupportDesk.Api.Documentation;
@@ -34,7 +35,7 @@ builder.Services.Configure<JwtOptions>(jwtSection);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(connectionString);
 
-// NEW: the identity of the caller, exposed to the Application layer through ICurrentUser.
+// The identity of the caller, exposed to the Application layer through ICurrentUser.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 
@@ -82,22 +83,24 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
-if (app.Environment.IsDevelopment())
+// Interactive docs run in Development, or anywhere when Docs:Enabled=true (handy for a public demo).
+var docsEnabled = app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Docs:Enabled");
+
+if (docsEnabled)
 {
     app.MapOpenApi();            // OpenAPI document at /openapi/v1.json
     app.MapScalarApiReference(); // Interactive docs at /scalar
 }
-else
-{
-    // In production TLS is usually terminated by the platform, so only redirect
-    // when the app itself is the one serving HTTPS.
-    app.UseHttpsRedirection();
-}
+
+// No HTTPS redirection here: in containers TLS is terminated by the hosting platform.
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/", () => Results.Redirect("/scalar")).ExcludeFromDescription();
+if (docsEnabled)
+{
+    app.MapGet("/", () => Results.Redirect("/scalar")).ExcludeFromDescription();
+}
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions
@@ -108,6 +111,15 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapTicketEndpoints();
+
+// Apply pending migrations when asked to (containers/cloud). EF Core takes a database lock,
+// so two instances starting at the same time do not apply the same migration twice.
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<SupportDeskDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 // Bootstrap the first administrator when credentials are provided (user-secrets or environment).
 var adminEmail = builder.Configuration["Seed:AdminEmail"];

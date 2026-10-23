@@ -5,14 +5,15 @@ on:
     branches: [main]
   pull_request:
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/alexisjfranco1575/supportdesk-api
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -23,16 +24,43 @@ jobs:
       - name: Restore
         run: dotnet restore
 
-      - name: Audit packages for known vulnerabilities
+      - name: Audit dependencies for known vulnerabilities
         run: |
-          dotnet list package --vulnerable --include-transitive 2>&1 | tee audit.txt
-          if grep -q "has the following vulnerable packages" audit.txt; then
-            echo "Vulnerable packages found. See the report above."
+          dotnet list package --vulnerable --include-transitive 2>&1 | tee audit.log
+          if grep -q "has the following vulnerable packages" audit.log; then
+            echo "Vulnerable packages found."
             exit 1
           fi
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build --configuration Release --no-restore
 
-      - name: Test (unit and integration, uses Docker for SQL Server)
-        run: dotnet test --no-build --configuration Release --verbosity normal
+      - name: Test
+        run: dotnet test --configuration Release --no-build
+
+  docker-image:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the Docker image
+        run: |
+          docker build \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --tag "$IMAGE:${{ github.sha }}" \
+            --tag "$IMAGE:latest" \
+            .
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Push the image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
