@@ -3,21 +3,24 @@
 [![CI](https://github.com/AlexisJFranco1575/supportdesk-api/actions/workflows/ci.yml/badge.svg)](https://github.com/AlexisJFranco1575/supportdesk-api/actions/workflows/ci.yml)
 
 A support-ticket API built with **.NET 10**, **Clean Architecture**, **EF Core** and **SQL Server**.
-It models a real ticket workflow (Open → In progress → Resolved → Closed, with reopening),
-secures it with **JWT authentication, role-based authorization and per-user ownership**, and keeps the
-business rules in a framework-free domain layer. The HTTP surface is tested end to end against a real
-SQL Server started with Testcontainers.
+It models a real ticket workflow (Open → In progress → Resolved → Closed, with reopening), secures it with
+**JWT authentication, role-based authorization and per-user ownership**, and keeps the business rules in a
+framework-free domain layer. The HTTP surface is tested end to end against a real SQL Server started with
+Testcontainers, and the API runs as a container on **Azure Container Apps** with **Azure SQL Database**.
+
+**Live demo:** https://supportdesk-api.niceground-5b163a4e.westus3.azurecontainerapps.io
+
+> The demo runs on free-tier infrastructure that scales to zero: the first request after a quiet period can take
+> 20-40 seconds while the container starts and the database resumes. Create an account with
+> `POST /api/auth/register`, log in, then choose **Bearer Token** in the Authentication panel and paste the token.
 
 ## Status
-
-Work in progress.
 
 - [x] Milestone 1: domain model, unit tests, API skeleton, CI
 - [x] Milestone 2: application layer, EF Core + SQL Server, migrations, ticket endpoints
 - [x] Milestone 3: integration tests (Testcontainers), readiness probe, dependency audit in CI
-- [x] Milestone 4a: users, JWT authentication, roles, input validation
-- [x] Milestone 4b: ownership rules (customers only see their own tickets)
-- [ ] Milestone 5: Docker image and cloud deployment
+- [x] Milestone 4: users, JWT authentication, roles, validation, ownership rules
+- [x] Milestone 5: Docker image, image published from CI, deployment on Azure
 
 ## Architecture
 
@@ -35,6 +38,10 @@ tests/
 
 Dependencies point inwards: `Api → Infrastructure → Application → Domain`.
 
+```
+GitHub Actions ──build, test, audit──▶ image on ghcr.io ──▶ Azure Container Apps ──▶ Azure SQL Database
+```
+
 ## Security model
 
 | Role | Can do |
@@ -51,7 +58,8 @@ Dependencies point inwards: `Api → Infrastructure → Application → Domain`.
 - A ticket's requester is taken from the validated token, never from the request body.
 - Customers asking for someone else's ticket get `404`, not `403`, so the ticket's existence is not revealed. The "own tickets only" restriction is applied inside the database query.
 - Working on tickets is protected twice: by an endpoint policy and by a rule inside the service.
-- The signing key and the first admin come from user-secrets / environment variables, never from the repository.
+- Secrets (database connection, signing key, first admin) come from environment variables or user-secrets, never from the repository or the image.
+- The container runs as a non-root user.
 
 ## Endpoints
 
@@ -108,8 +116,39 @@ dotnet ef database update --project src/SupportDesk.Infrastructure --startup-pro
 dotnet run --project src/SupportDesk.Api
 ```
 
-Open the printed URL followed by `/scalar` for the interactive API docs. Log in through
-`POST /api/auth/login`, then choose **Bearer Token** in the Authentication panel and paste the token.
+Open the printed URL followed by `/scalar` for the interactive API docs.
+
+## Run with Docker
+
+With the database from step 1 above running:
+
+```bash
+docker build -t supportdesk-api:local .
+
+docker run --rm -p 8080:8080 \
+  -e "ConnectionStrings__SupportDesk=Server=host.docker.internal,1433;Database=SupportDeskDocker;User Id=sa;Password=<your password>;TrustServerCertificate=True" \
+  -e "Jwt__SigningKey=<at least 32 random characters>" \
+  -e "Database__MigrateOnStartup=true" \
+  -e "Docs__Enabled=true" \
+  -e "Seed__AdminEmail=admin@supportdesk.local" \
+  -e "Seed__AdminPassword=<a strong password>" \
+  supportdesk-api:local
+```
+
+Configuration switches:
+
+| Setting | Effect |
+| --- | --- |
+| `Database__MigrateOnStartup=true` | Applies pending EF Core migrations when the app starts |
+| `Docs__Enabled=true` | Serves `/scalar` and `/openapi/v1.json` outside Development |
+| `Seed__AdminEmail` / `Seed__AdminPassword` | Creates the first administrator if it does not exist |
+
+## Deployment
+
+Every push to `main` runs the build, tests and dependency audit, then publishes the image to
+`ghcr.io/alexisjfranco1575/supportdesk-api`. The live demo runs that image on Azure Container Apps
+(consumption plan, scale to zero) with an Azure SQL Database on the free offer. Secrets are stored as
+Container Apps secrets and injected as environment variables.
 
 ## Tests
 
@@ -133,3 +172,14 @@ migrations and call the API in memory. Nothing needs to be configured.
 - Separate liveness and readiness probes, so a platform can tell "restart me" from "stop sending traffic".
 - CI fails when a dependency has a known vulnerability, so security fixes are never silently skipped.
 - No MediatR and no assertion library: plain services and xUnit assertions keep the dependency list small.
+
+## Known limitations and next steps
+
+- No rate limiting or account lockout on login yet.
+- Access tokens are not revocable before they expire, and there are no refresh tokens.
+- The demo database firewall allows Azure services; a production setup would use a private network and managed identity.
+- Deployment to Azure is done by hand with the Azure CLI; automating it from CI is the natural next step.
+
+## License
+
+[MIT](LICENSE)
