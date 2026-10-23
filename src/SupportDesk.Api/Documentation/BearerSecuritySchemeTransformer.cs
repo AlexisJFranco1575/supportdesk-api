@@ -4,7 +4,11 @@ using Microsoft.OpenApi;
 
 namespace SupportDesk.Api.Documentation;
 
-/// <summary>Declares the JWT bearer scheme in the OpenAPI document so the docs UI can send a token.</summary>
+/// <summary>
+/// Declares the JWT bearer scheme in the OpenAPI document and requires it globally,
+/// so interactive docs (Scalar) offer a "Bearer" authentication option.
+/// Public endpoints (register, login, health) simply ignore the header.
+/// </summary>
 internal sealed class BearerSecuritySchemeTransformer(IAuthenticationSchemeProvider authenticationSchemeProvider)
     : IOpenApiDocumentTransformer
 {
@@ -15,21 +19,29 @@ internal sealed class BearerSecuritySchemeTransformer(IAuthenticationSchemeProvi
     {
         var schemes = await authenticationSchemeProvider.GetAllSchemesAsync();
 
-        if (schemes.Any(scheme => scheme.Name == "Bearer"))
+        if (!schemes.Any(scheme => scheme.Name == "Bearer"))
         {
-            var securitySchemes = new Dictionary<string, IOpenApiSecurityScheme>
-            {
-                ["Bearer"] = new OpenApiSecurityScheme
-                {
-                    Type = SecuritySchemeType.Http,
-                    Scheme = "bearer",
-                    In = ParameterLocation.Header,
-                    BearerFormat = "Json Web Token"
-                }
-            };
-
-            document.Components ??= new OpenApiComponents();
-            document.Components.SecuritySchemes = securitySchemes;
+            return;
         }
+
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes = new Dictionary<string, IOpenApiSecurityScheme>
+        {
+            ["Bearer"] = new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                In = ParameterLocation.Header,
+                BearerFormat = "Json Web Token"
+            }
+        };
+
+        document.Security =
+        [
+            new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+            }
+        ];
     }
 }
