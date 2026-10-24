@@ -10,6 +10,8 @@ Testcontainers, and the API runs as a container on **Azure Container Apps** with
 
 **Live demo:** https://supportdesk-api.niceground-5b163a4e.westus3.azurecontainerapps.io
 
+**Web app (Angular):** https://alexisjfranco1575.github.io/supportdesk-web/ ([source](https://github.com/AlexisJFranco1575/supportdesk-web))
+
 > The demo runs on free-tier infrastructure that scales to zero: the first request after a quiet period can take
 > 20-40 seconds while the container starts and the database resumes. Create an account with
 > `POST /api/auth/register`, log in, then choose **Bearer Token** in the Authentication panel and paste the token.
