@@ -65,6 +65,21 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy(Policies.Agent, policy => policy.RequireRole("Agent", "Admin"))
     .AddPolicy(Policies.Admin, policy => policy.RequireRole("Admin"));
 
+// CORS: browsers only let a web app call this API when its origin is listed here.
+// With no origins configured, no cross-origin access is granted at all.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+    options.AddDefaultPolicy(policy =>
+    {
+        if (allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins)
+                .WithHeaders("Authorization", "Content-Type")
+                .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE");
+        }
+    }));
+
 // Enums travel as readable strings ("InProgress") instead of numbers.
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
@@ -93,6 +108,9 @@ if (docsEnabled)
 }
 
 // No HTTPS redirection here: in containers TLS is terminated by the hosting platform.
+
+// CORS must run before authentication so preflight (OPTIONS) requests are answered without a token.
+app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();

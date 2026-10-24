@@ -1,0 +1,15 @@
+* [33m2390209[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m docs: final README with live demo, Docker and deployment sections; add MIT license
+[31m|[m * [33m8911d9a[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #7 from AlexisJFranco1575/docs/final-readme
+[31m|[m[31m/[m[33m|[m 
+[31m|[m * [33m599ce62[m[33m ([m[1;31morigin/docs/final-readme[m[33m, [m[1;32mdocs/final-readme[m[33m)[m docs: final README with live demo, Docker and deployment sections; add MIT license
+[31m|[m[31m/[m  
+*   [33m87649a5[m Merge pull request #6 from AlexisJFranco1575/feat/docker-image
+[34m|[m[35m\[m  
+[34m|[m * [33mfdac582[m[33m ([m[1;31morigin/feat/docker-image[m[33m, [m[1;32mfeat/docker-image[m[33m)[m feat: add Dockerfile, migrate-on-startup, bearer auth in docs and image publishing
+[34m|[m[34m/[m  
+*   [33mb9eadd1[m Merge pull request #5 from AlexisJFranco1575/feat/ticket-ownership
+[36m|[m[1;31m\[m  
+[36m|[m * [33m710aacc[m[33m ([m[1;31morigin/feat/ticket-ownership[m[33m, [m[1;32mfeat/ticket-ownership[m[33m)[m feat: scope tickets to their requester and enforce staff-only actions in the service
+[36m|[m[36m/[m  
+*   [33m363f59a[m Merge pull request #4 from AlexisJFranco1575/feat/auth-jwt
+[1;32m|[m[1;33m\[m  
