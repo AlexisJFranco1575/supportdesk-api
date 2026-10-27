@@ -1,4 +1,5 @@
 using SupportDesk.Application.Auth;
+using SupportDesk.Application.Common;
 using SupportDesk.Domain.Users;
 
 namespace SupportDesk.Application.Tests.Auth;
@@ -21,6 +22,14 @@ internal sealed class FakeUserRepository : IUserRepository
     public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken) =>
         Task.FromResult(_users.FirstOrDefault(u =>
             string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase)));
+
+    public Task<PagedResult<User>> ListAsync(int page, int pageSize, CancellationToken cancellationToken)
+    {
+        var ordered = _users.OrderBy(u => u.CreatedAt).ThenBy(u => u.Email).ToList();
+        var items = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        return Task.FromResult(new PagedResult<User>(items, page, pageSize, ordered.Count));
+    }
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

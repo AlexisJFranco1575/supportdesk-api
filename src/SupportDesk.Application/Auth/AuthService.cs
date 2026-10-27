@@ -9,6 +9,9 @@ public sealed class AuthService(
     ITokenService tokenService,
     TimeProvider timeProvider) : IAuthService
 {
+    public const int MaxPageSize = 100;
+    private const int MaxPage = 100_000;
+
     public Task<UserResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken) =>
         CreateUserAsync(request, UserRole.Customer, cancellationToken);
 
@@ -47,6 +50,23 @@ public sealed class AuthService(
         await users.SaveChangesAsync(cancellationToken);
 
         return UserResponse.From(user);
+    }
+
+    public async Task<PagedResult<UserResponse>> ListUsersAsync(
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var result = await users.ListAsync(
+            Math.Clamp(page, 1, MaxPage),
+            Math.Clamp(pageSize, 1, MaxPageSize),
+            cancellationToken);
+
+        return new PagedResult<UserResponse>(
+            result.Items.Select(UserResponse.From).ToList(),
+            result.Page,
+            result.PageSize,
+            result.TotalCount);
     }
 
     public async Task EnsureAdminAsync(

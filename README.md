@@ -51,7 +51,7 @@ GitHub Actions ──build, test, audit──▶ image on ghcr.io ──▶ Azur
 | Anonymous | Register, log in, health probes |
 | Customer | Create tickets and read **only their own** |
 | Agent | Read every ticket; assign, resolve, close, reopen and re-prioritise them |
-| Admin | Everything an agent can, plus change user roles |
+| Admin | Everything an agent can, plus list users and change their roles (never their own) |
 
 - Registration always creates a `Customer`; only an admin can promote a user.
 - Passwords are hashed with PBKDF2 (ASP.NET Core Identity hasher, 210,000 iterations); plain passwords are never stored or returned.
@@ -70,6 +70,7 @@ GitHub Actions ──build, test, audit──▶ image on ghcr.io ──▶ Azur
 | POST | `/api/auth/register` | Anonymous | Create a customer account |
 | POST | `/api/auth/login` | Anonymous | Exchange credentials for a JWT |
 | GET | `/api/auth/me` | Authenticated | Identity carried by the token |
+| GET | `/api/users` | Admin | List user accounts (`page`, `pageSize`), without password data |
 | PUT | `/api/users/{id}/role` | Admin | Change a user's role |
 | POST | `/api/tickets` | Authenticated | Create a ticket |
 | GET | `/api/tickets` | Authenticated | List tickets (`status`, `priority`, `page`, `pageSize`); customers see only their own |

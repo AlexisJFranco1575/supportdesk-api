@@ -1,3 +1,4 @@
+using SupportDesk.Application.Common;
 using SupportDesk.Domain.Users;
 
 namespace SupportDesk.Application.Auth;
@@ -23,6 +24,9 @@ public interface IUserRepository
     Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken);
+
+    /// <summary>Returns one page of users, oldest account first.</summary>
+    Task<PagedResult<User>> ListAsync(int page, int pageSize, CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
