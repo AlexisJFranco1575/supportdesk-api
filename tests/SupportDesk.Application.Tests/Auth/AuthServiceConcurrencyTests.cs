@@ -49,6 +49,9 @@ public class AuthServiceConcurrencyTests
         public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken) =>
             Task.FromResult<User?>(null);
 
+        public Task<PagedResult<User>> ListAsync(int page, int pageSize, CancellationToken cancellationToken) =>
+            Task.FromResult(new PagedResult<User>([], page, pageSize, 0));
+
         // ...but by the time we save, somebody else won the race.
         public Task SaveChangesAsync(CancellationToken cancellationToken) =>
             throw new ConflictException("An account with this email already exists.");

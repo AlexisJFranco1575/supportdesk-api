@@ -24,6 +24,22 @@ public sealed class UserRepository(SupportDeskDbContext db) : IUserRepository
     public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken) =>
         db.Users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
+    public async Task<PagedResult<User>> ListAsync(int page, int pageSize, CancellationToken cancellationToken)
+    {
+        IQueryable<User> query = db.Users.AsNoTracking();
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderBy(u => u.CreatedAt)
+            .ThenBy(u => u.Email)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<User>(items, page, pageSize, totalCount);
+    }
+
     public async Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         try
